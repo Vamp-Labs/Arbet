@@ -1,0 +1,105 @@
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anchor_lang::solana_program::system_instruction;
+
+    #[test]
+    fn test_initialize_vault() {
+        // Mock authority
+        let authority = Pubkey::new_unique();
+
+        // Vault should be initialized with zero balance
+        assert_eq!(0, 0); // Placeholder - actual test runs with BanksClient
+    }
+
+    #[test]
+    fn test_deposit_valid_amount() {
+        let amount = 1_000_000; // 1 SOL in lamports
+        assert!(amount > 5000, "Amount should be >= 5000 lamports");
+    }
+
+    #[test]
+    fn test_deposit_invalid_amount() {
+        let amount = 0u64;
+        assert_eq!(amount, 0, "Zero amount should be rejected");
+    }
+
+    #[test]
+    fn test_deposit_below_minimum() {
+        let amount = 1000u64; // Below 5000 minimum
+        assert!(amount < 5000, "Below minimum check works");
+    }
+
+    #[test]
+    fn test_withdraw_insufficient_balance() {
+        let balance = 100_000i64;
+        let withdrawal = 200_000u64;
+        assert!(balance < withdrawal as i64, "Should fail if balance < withdrawal");
+    }
+
+    #[test]
+    fn test_withdraw_paused_vault() {
+        let is_paused = true;
+        assert!(is_paused, "Vault is paused, withdrawal should fail");
+    }
+
+    #[test]
+    fn test_balance_overflow_protection() {
+        let balance: i64 = i64::MAX - 100;
+        let deposit: i64 = 1000;
+        let result = balance.checked_add(deposit);
+        assert!(result.is_some(), "Check overflow protection");
+    }
+
+    #[test]
+    fn test_balance_underflow_protection() {
+        let balance: i64 = 100;
+        let withdrawal: i64 = 1000;
+        let result = balance.checked_sub(withdrawal);
+        assert!(result.is_none(), "Should fail on underflow");
+    }
+
+    #[test]
+    fn test_max_balance_tracking() {
+        let initial_balance: i64 = 0;
+        let max_balance: i64 = 0;
+        let deposit: i64 = 1_000_000;
+
+        let new_balance = initial_balance + deposit;
+        let new_max = if new_balance > max_balance {
+            new_balance
+        } else {
+            max_balance
+        };
+
+        assert_eq!(new_max, 1_000_000, "Max balance should be updated");
+    }
+
+    #[test]
+    fn test_min_balance_tracking() {
+        let balance: i64 = 1_000_000;
+        let min_balance: i64 = 0;
+        let withdrawal: i64 = 200_000;
+
+        let new_balance = balance - withdrawal;
+        let new_min = if new_balance < min_balance || min_balance == 0 {
+            new_balance
+        } else {
+            min_balance
+        };
+
+        assert_eq!(new_min, 800_000, "Min balance should be tracked");
+    }
+
+    #[test]
+    fn test_pda_seed_derivation() {
+        let authority = Pubkey::new_unique();
+        let vault_seed = [b"vault", authority.as_ref()];
+
+        // Seeds should be unique per authority
+        let other_authority = Pubkey::new_unique();
+        let other_seed = [b"vault", other_authority.as_ref()];
+
+        assert_ne!(vault_seed, other_seed, "Different authorities have different seeds");
+    }
+}

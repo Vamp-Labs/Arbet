@@ -38,6 +38,83 @@ pub mod arbet {
         msg!("Vault initialized for authority: {}", ctx.accounts.authority.key());
         Ok(())
     }
+
+    pub fn deposit(ctx: Context<Deposit>, amount_lamports: u64) -> Result<()> {
+        require!(amount_lamports > 0, ErrorCode::InvalidAmount);
+        require!(amount_lamports >= 5000, ErrorCode::BelowMinimum);
+
+        let vault = &mut ctx.accounts.vault;
+
+        // Update vault balance
+        vault.balance = vault.balance.checked_add(amount_lamports as i64)
+            .ok_or(ErrorCode::BalanceOverflow)?;
+
+        // Set initial balance if this is the first deposit
+        if vault.initial_balance == 0 {
+            vault.initial_balance = vault.balance;
+        }
+
+        // Update max balance tracking
+        if vault.balance > vault.max_balance {
+            vault.max_balance = vault.balance;
+        }
+
+        // Transfer SOL from user to vault
+        let transfer_instruction = anchor_lang::solana_program::system_instruction::transfer(
+            &ctx.accounts.depositor.key(),
+            &vault.key(),
+            amount_lamports,
+        );
+
+        anchor_lang::solana_program::program::invoke(
+            &transfer_instruction,
+            &[
+                ctx.accounts.depositor.to_account_info(),
+                ctx.accounts.vault.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+            ],
+        )?;
+
+        msg!("Deposit successful: {} lamports into vault", amount_lamports);
+        Ok(())
+    }
+
+    pub fn withdraw(ctx: Context<Withdraw>, amount_lamports: u64) -> Result<()> {
+        require!(amount_lamports > 0, ErrorCode::InvalidAmount);
+
+        let vault = &mut ctx.accounts.vault;
+        require!(vault.balance >= amount_lamports as i64, ErrorCode::InsufficientBalance);
+        require!(!vault.is_paused, ErrorCode::VaultPaused);
+
+        // Update vault balance
+        vault.balance = vault.balance.checked_sub(amount_lamports as i64)
+            .ok_or(ErrorCode::BalanceUnderflow)?;
+
+        // Update min balance tracking
+        if vault.balance < vault.min_balance || vault.min_balance == 0 {
+            vault.min_balance = vault.balance;
+        }
+
+        // Transfer SOL from vault to user
+        let transfer_instruction = anchor_lang::solana_program::system_instruction::transfer(
+            &vault.key(),
+            &ctx.accounts.withdrawer.key(),
+            amount_lamports,
+        );
+
+        anchor_lang::solana_program::program::invoke_signed(
+            &transfer_instruction,
+            &[
+                vault.to_account_info(),
+                ctx.accounts.withdrawer.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+            ],
+            &[&[b"vault", ctx.accounts.authority.key().as_ref(), &[ctx.bumps.vault]]],
+        )?;
+
+        msg!("Withdrawal successful: {} lamports from vault", amount_lamports);
+        Ok(())
+    }
 }
 
 // === ACCOUNTS & DATA STRUCTURES ===
@@ -126,6 +203,40 @@ pub struct InitializeVault<'info> {
     pub system_program: Program<'info, System>,
 }
 
+#[derive(Accounts)]
+pub struct Deposit<'info> {
+    #[account(mut)]
+    pub depositor: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"vault", depositor.key().as_ref()],
+        bump
+    )]
+    pub vault: Account<'info, VaultPDA>,
+
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct Withdraw<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"vault", authority.key().as_ref()],
+        bump,
+        constraint = vault.authority == authority.key()
+    )]
+    pub vault: Account<'info, VaultPDA>,
+
+    #[account(mut)]
+    pub withdrawer: SystemAccount<'info>,
+
+    pub system_program: Program<'info, System>,
+}
+
 // === ERRORS ===
 
 #[error_code]
@@ -147,4 +258,16 @@ pub enum ErrorCode {
 
     #[msg("Drawdown limit exceeded")]
     DrawdownLimitExceeded,
+
+    #[msg("Invalid amount")]
+    InvalidAmount,
+
+    #[msg("Below minimum amount")]
+    BelowMinimum,
+
+    #[msg("Balance overflow")]
+    BalanceOverflow,
+
+    #[msg("Balance underflow")]
+    BalanceUnderflow,
 }
