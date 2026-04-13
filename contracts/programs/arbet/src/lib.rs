@@ -1,16 +1,150 @@
 use anchor_lang::prelude::*;
 
-declare_id!("YOUR_PROGRAM_ID_HERE");
+declare_id!("ArBEt11111111111111111111111111111111111111");
 
 #[program]
 pub mod arbet {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
-        msg!("Arbet program initialized");
+    pub fn initialize_global_config(
+        ctx: Context<InitializeGlobalConfig>,
+        position_limit_bps: u16,
+        max_drawdown_bps: u16,
+    ) -> Result<()> {
+        let global_config = &mut ctx.accounts.global_config;
+        global_config.authority = ctx.accounts.authority.key();
+        global_config.position_limit_bps = position_limit_bps;
+        global_config.max_drawdown_bps = max_drawdown_bps;
+        global_config.protocol_fee_bps = 5;
+        global_config.execution_count = 0;
+        global_config.protocol_fee_collected = 0;
+        global_config.is_paused = false;
+
+        msg!("Global config initialized");
+        Ok(())
+    }
+
+    pub fn initialize_vault(ctx: Context<InitializeVault>) -> Result<()> {
+        let vault = &mut ctx.accounts.vault;
+        vault.authority = ctx.accounts.authority.key();
+        vault.balance = 0;
+        vault.initial_balance = 0;
+        vault.cumulative_pnl = 0;
+        vault.max_balance = 0;
+        vault.min_balance = 0;
+        vault.num_trades = 0;
+        vault.is_paused = false;
+
+        msg!("Vault initialized for authority: {}", ctx.accounts.authority.key());
         Ok(())
     }
 }
 
+// === ACCOUNTS & DATA STRUCTURES ===
+
+#[account]
+pub struct GlobalConfig {
+    pub authority: Pubkey,                  // Admin authority
+    pub position_limit_bps: u16,           // Max position as % of TVL (basis points)
+    pub max_drawdown_bps: u16,             // Max cumulative loss % (basis points)
+    pub protocol_fee_bps: u8,              // Fee on execution (basis points)
+    pub execution_count: u64,              // Total executions
+    pub protocol_fee_collected: i64,       // Lamports collected in fees
+    pub is_paused: bool,                   // Emergency pause flag
+}
+
+#[account]
+pub struct VaultPDA {
+    pub authority: Pubkey,                 // Vault owner (wallet)
+    pub balance: i64,                      // Current balance in lamports
+    pub initial_balance: i64,              // Initial deposit
+    pub cumulative_pnl: i64,               // Total PnL
+    pub max_balance: i64,                  // Highest balance reached
+    pub min_balance: i64,                  // Lowest balance reached
+    pub num_trades: u64,                   // Total trades executed
+    pub is_paused: bool,                   // Vault paused flag
+}
+
+#[account]
+pub struct TradeLog {
+    pub vault: Pubkey,
+    pub trade_id: u64,
+    pub timestamp: i64,
+    pub buy_amount: u64,
+    pub sell_amount: u64,
+    pub actual_edge_bps: u16,
+    pub pnl_lamports: i64,
+    pub execution_slot: u64,
+}
+
+#[account]
+pub struct TradeIntent {
+    pub vault: Pubkey,
+    pub trade_id: u64,
+    pub buy_market_id: u64,
+    pub sell_market_id: u64,
+    pub buy_amount: u64,
+    pub min_sell_amount: u64,
+    pub estimated_edge_bps: u16,
+    pub timestamp: i64,
+}
+
+// === CONTEXTS ===
+
 #[derive(Accounts)]
-pub struct Initialize {}
+#[instruction(position_limit_bps: u16, max_drawdown_bps: u16)]
+pub struct InitializeGlobalConfig<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    #[account(
+        init,
+        payer = authority,
+        space = 8 + std::mem::size_of::<GlobalConfig>(),
+        seeds = [b"global_config"],
+        bump
+    )]
+    pub global_config: Account<'info, GlobalConfig>,
+
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct InitializeVault<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    #[account(
+        init,
+        payer = authority,
+        space = 8 + std::mem::size_of::<VaultPDA>(),
+        seeds = [b"vault", authority.key().as_ref()],
+        bump
+    )]
+    pub vault: Account<'info, VaultPDA>,
+
+    pub system_program: Program<'info, System>,
+}
+
+// === ERRORS ===
+
+#[error_code]
+pub enum ErrorCode {
+    #[msg("Vault is paused")]
+    VaultPaused,
+
+    #[msg("Insufficient balance")]
+    InsufficientBalance,
+
+    #[msg("Position limit exceeded")]
+    PositionLimitExceeded,
+
+    #[msg("Edge estimate too low")]
+    EdgeTooLow,
+
+    #[msg("Slippage exceeded")]
+    SlippageExceeded,
+
+    #[msg("Drawdown limit exceeded")]
+    DrawdownLimitExceeded,
+}
