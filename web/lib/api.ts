@@ -13,35 +13,78 @@ export class ApiClient {
     })
   }
 
+  /**
+   * Get vault state (balance, PnL, metrics)
+   */
   async getVault(vaultId: string) {
     const response = await this.client.get(`/vault/${vaultId}`)
     return response.data
   }
 
-  async getTrades(vaultId: string, limit = 20) {
+  /**
+   * Create a new vault
+   */
+  async createVault(vaultId: string, authority: string, initialBalance: number = 0) {
+    const response = await this.client.post(`/vault/${vaultId}/create`, {
+      vault_id: vaultId,
+      authority,
+      initial_balance: initialBalance,
+    })
+    return response.data
+  }
+
+  /**
+   * Get trade history
+   */
+  async getTrades(vaultId?: string, limit = 20, hoursBack = 24) {
     const response = await this.client.get('/trades', {
-      params: { vault_id: vaultId, limit },
+      params: {
+        vault_id: vaultId,
+        limit,
+        hours_back: hoursBack,
+      },
     })
     return response.data
   }
 
-  async getOpportunities() {
-    const response = await this.client.get('/opportunities')
+  /**
+   * Get arbitrage opportunities
+   */
+  async getOpportunities(limit = 50, minSpreadBps = 0) {
+    const response = await this.client.get('/opportunities', {
+      params: {
+        limit,
+        min_spread_bps: minSpreadBps,
+      },
+    })
     return response.data
   }
 
-  async getAgentLogs(vaultId: string) {
+  /**
+   * Get agent activity logs
+   */
+  async getAgentLogs(agent?: string, limit = 500, hoursBack = 24) {
     const response = await this.client.get('/agent-logs', {
-      params: { vault_id: vaultId },
+      params: {
+        agent,
+        limit,
+        hours_back: hoursBack,
+      },
     })
     return response.data
   }
 
-  async updateConfig(vaultId: string, config: any) {
-    const response = await this.client.post(`/config/${vaultId}`, config)
+  /**
+   * Get server health and metrics
+   */
+  async getHealth() {
+    const response = await this.client.get('/health')
     return response.data
   }
 
+  /**
+   * Get WebSocket URL for real-time updates
+   */
   getWebSocketUrl(): string {
     const wsProto = API_URL.startsWith('https') ? 'wss' : 'ws'
     const url = new URL(API_URL)

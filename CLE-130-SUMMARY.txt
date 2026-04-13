@@ -1,0 +1,462 @@
+================================================================================
+CLE-130: WALLET CONNECTION & VAULT MANAGEMENT
+COMPREHENSIVE IMPLEMENTATION PLAN - EXECUTIVE SUMMARY
+================================================================================
+
+PROJECT: Arbet Prediction Market Arbitrage Platform
+FEATURE: Wallet Connection & Vault Management (CLE-130)
+OWNER: Development Team
+DATE: 2026-04-14
+STATUS: Design Phase (Ready for Implementation)
+
+================================================================================
+DELIVERABLES CREATED
+================================================================================
+
+1. CLE-130-IMPLEMENTATION-PLAN.md (Main Document)
+   ├─ Executive Summary
+   ├─ Current State Analysis  
+   ├─ File Structure Design
+   ├─ Store Schema (Zustand)
+   ├─ Component Specifications (8 components)
+   ├─ API Client Extensions
+   ├─ Custom Hooks (3 hooks)
+   ├─ Utility Functions (lib/vault.ts)
+   ├─ Integration Flow Diagram
+   ├─ Testing Strategy (Unit, Component, Integration, E2E)
+   ├─ Implementation Sequence (22 tasks across 6 phases)
+   ├─ Error Handling Strategy
+   ├─ Performance Considerations
+   ├─ Deployment Checklist
+   ├─ Future Enhancements
+   ├─ Dependencies Review
+   ├─ Success Criteria (10 items)
+   └─ Risk Assessment
+
+2. CLE-130-TECHNICAL-SPECS.md (Architecture Details)
+   ├─ State Management Architecture (Zustand diagram)
+   ├─ Component Tree (Full visual hierarchy)
+   ├─ Data Flow Diagrams (4 flows)
+   ├─ API Contract (3 endpoints)
+   ├─ Hook Specifications (3 detailed hooks)
+   ├─ Type Definitions
+   ├─ Error Handling Matrix (7 scenarios)
+   ├─ Performance Metrics (6 targets)
+   ├─ Security Considerations
+   ├─ Accessibility Standards (WCAG 2.1)
+   ├─ Mobile Responsiveness
+   ├─ Development Workflow
+   ├─ Monitoring & Debugging
+   ├─ Deployment Strategy
+   └─ Environment Configuration
+
+3. CLE-130-QUICK-START.md (Developer Reference)
+   ├─ 5-Minute Getting Started Guide
+   ├─ Implementation Checklist (6 phases, 22 tasks)
+   ├─ 5 Key Component Examples (Copy-paste ready)
+   ├─ Testing Quick Start (Unit & Component templates)
+   ├─ Common Tasks (5 practical examples)
+   ├─ File Structure Quick Reference
+   ├─ Tailwind Pattern Reference
+   ├─ Debugging Tips (3 techniques)
+   ├─ FAQ (5 questions)
+   └─ Next Steps (Post-MVP features)
+
+================================================================================
+KEY STATISTICS
+================================================================================
+
+NEW COMPONENTS TO BUILD: 8
+├─ Wallet Components: 3 (WalletConnect, WalletInfo, WalletButton)
+├─ Vault Components: 4 (VaultSelector, VaultDisplay, VaultCreateForm, VaultMetrics)
+└─ Common Components: 3+ (ErrorAlert, LoadingSpinner, StatCard)
+
+MODIFIED FILES: 3
+├─ lib/store.ts (Expand with vault state)
+├─ lib/api.ts (Add vault methods)
+└─ lib/hooks.ts (Add polling hooks)
+
+NEW FILES: 5 (minimum)
+├─ app/providers.tsx
+├─ lib/vault.ts
+├─ lib/store.ts (rewrite)
+├─ lib/hooks.ts (rewrite)
+└─ Component files (8+)
+
+ESTIMATED EFFORT: 40-60 developer hours
+IMPLEMENTATION PHASES: 6 phases over 2 weeks
+DEPENDENCIES REQUIRED: 0 (all packages already installed!)
+
+================================================================================
+ARCHITECTURE OVERVIEW
+================================================================================
+
+TECHNOLOGY STACK:
+  Frontend: Next.js 15 (App Router) + TypeScript + Tailwind
+  State: Zustand (single store)
+  Wallet: @solana/wallet-adapter-react + @solana/wallet-adapter-react-ui
+  HTTP: Axios API client
+  RPC: @solana/web3.js (Connection)
+  Forms: react-hook-form
+  Testing: Jest + @testing-library
+
+DATA FLOW:
+  User → Wallet Adapter → Zustand Store → Components
+                    ↓
+                API Client → Backend (FastAPI)
+                    ↓
+                Returns VaultState → Store → UI Update
+
+REAL-TIME UPDATES:
+  Phase 1: Polling (5s for vault, 30s for balance) ✓ MVP
+  Phase 2: WebSocket subscription (future enhancement)
+
+================================================================================
+STORE SCHEMA (Zustand)
+================================================================================
+
+Interface Store {
+  // Wallet State
+  publicKey: PublicKey | null
+  isConnected: boolean
+  solBalance: bigint
+
+  // Vault State
+  vaults: VaultState[]
+  selectedVaultId: string | null
+  selectedVault: VaultState | null
+
+  // UI State
+  isLoadingVault: boolean
+  isLoadingBalance: boolean
+  lastVaultUpdate: number | null
+  errorMessage: string | null
+
+  // Actions: 13 action creators for all state mutations
+}
+
+================================================================================
+COMPONENT HIERARCHY
+================================================================================
+
+RootLayout
+├─ <Providers> (ConnectionProvider, WalletProvider, WalletModalProvider)
+│
+└─ Header
+   ├─ WalletConnect (WalletMultiButton + store sync)
+   ├─ WalletInfo (address, balance display)
+   └─ VaultSelector (dropdown, "Create New" button)
+   
+└─ MainContent (3 conditional renders)
+   ├─ Case 1: Not connected → "Connect wallet" message
+   ├─ Case 2: Connected, no vaults → VaultCreateForm
+   └─ Case 3: Connected, vault selected → VaultDisplay
+      └─ VaultMetrics (balance, PnL, drawdown, trades cards)
+
+================================================================================
+KEY FEATURES
+================================================================================
+
+PHASE 1: Foundation (Day 1-2)
+  ✓ Providers setup (Wallet adapters)
+  ✓ Extended Zustand store
+  ✓ WalletConnect component
+
+PHASE 2: Wallet Integration (Day 3-4)
+  ✓ WalletInfo component
+  ✓ useWalletBalance() hook (polls every 30s)
+  ✓ Header layout
+  ✓ Balance display & updates
+
+PHASE 3: Vault Selection (Day 5-6)
+  ✓ API methods (createVault, getUserVaults)
+  ✓ useUserVaults() hook
+  ✓ VaultSelector component
+  ✓ Dropdown UI with vault list
+
+PHASE 4: Vault Creation (Day 7-8)
+  ✓ VaultCreateForm component
+  ✓ Form validation
+  ✓ API integration
+  ✓ Error handling
+
+PHASE 5: Vault Monitoring (Day 9-10)
+  ✓ Vault utility functions
+  ✓ VaultMetrics component (stats cards)
+  ✓ VaultDisplay component (main view)
+  ✓ useVaultPolling() hook (5s interval)
+  ✓ Real-time vault balance updates
+
+PHASE 6: Polish & Release (Day 11-12)
+  ✓ Dashboard page integration
+  ✓ Error handling & edge cases
+  ✓ Loading states
+  ✓ Mobile responsive design
+  ✓ Testing suite
+  ✓ Documentation
+
+================================================================================
+API CONTRACTS
+================================================================================
+
+EXISTING ENDPOINT:
+  GET /vault/{vault_id}
+  Response: VaultState { balance, cumulative_pnl, num_trades, ... }
+
+NEEDS IMPLEMENTATION (Backend):
+  POST /vault/{vault_id}/create
+  POST Body: { authority, initial_balance, position_limit_bps, max_drawdown_bps }
+  
+  GET /vaults?authority={wallet_address}
+  Response: VaultState[]
+
+================================================================================
+CUSTOM HOOKS
+================================================================================
+
+1. useWalletBalance(publicKey)
+   → Returns: { balance, loading, error, refetch }
+   → Behavior: Polls chain every 30s, updates store
+
+2. useUserVaults(authority)
+   → Returns: { loading, error, refetch }
+   → Behavior: Fetches user's vaults from API on authority change
+
+3. useVaultPolling(vaultId, interval?)
+   → Returns: { loading, error, refetch }
+   → Behavior: Polls vault state every 5s, updates store, cleanup on unmount
+
+================================================================================
+ERROR HANDLING
+================================================================================
+
+Wallet Errors:
+  • Wallet not installed → Show install link
+  • Connection rejected → Show "User rejected" message
+  • Network mismatch → Show "Switch network" message
+
+API Errors:
+  • Vault not found (404) → Return to vault list
+  • Create vault fails → Keep form populated, show retry
+  • Balance fetch fails → Use cached balance, show warning
+
+Form Validation:
+  • Balance ≤ 0 → "Must be greater than 0"
+  • Position limit invalid → "Must be 0-100%"
+  • Max drawdown invalid → "Must be 0-100%"
+
+User Feedback:
+  • Success: Toast notification
+  • Error: Alert with error message
+  • Loading: Spinner + loading text
+  • Retry: Error alert with retry button
+
+================================================================================
+TESTING STRATEGY
+================================================================================
+
+UNIT TESTS:
+  • Store actions and mutations
+  • Vault utility calculations
+  • Form validation logic
+  • Helper functions
+
+COMPONENT TESTS:
+  • WalletConnect rendering
+  • VaultSelector dropdown
+  • VaultMetrics display
+  • Form inputs & validation
+
+INTEGRATION TESTS:
+  • Wallet connection → vault list fetch
+  • Vault creation → auto-select flow
+  • Polling updates → store sync
+
+E2E TESTS (Playwright):
+  • Connect wallet → Create vault → View metrics
+  • Vault selection → Polling verification
+  • Error scenarios & recovery
+
+TARGET COVERAGE: >80%
+
+================================================================================
+SECURITY & COMPLIANCE
+================================================================================
+
+WALLET SECURITY:
+  ✓ Use official @solana/wallet-adapter packages
+  ✓ Never request private keys
+  ✓ Verify connection before sensitive ops
+  ✓ Session timeout for inactivity (future)
+
+DATA VALIDATION:
+  ✓ Client-side form validation
+  ✓ API response schema validation
+  ✓ Vault authority verification
+
+API SECURITY:
+  ✓ HTTPS only
+  ✓ CORS headers configured
+  ✓ Rate limiting (future)
+  ✓ Input sanitization (vault_id format)
+
+ACCESSIBILITY:
+  ✓ WCAG 2.1 Level AA compliance
+  ✓ Keyboard navigation (Tab, Enter, Escape)
+  ✓ Screen reader support
+  ✓ Color contrast 4.5:1+
+  ✓ Form labels properly associated
+
+================================================================================
+PERFORMANCE TARGETS
+================================================================================
+
+Initial load time: < 2s
+Wallet connection: < 1s
+Balance fetch: < 500ms
+Vault polling latency: < 200ms p99
+Component render: < 16ms
+Store updates: < 5ms
+
+Bundle size impact: ~15KB (with tree-shaking)
+
+================================================================================
+IMPLEMENTATION ROADMAP
+================================================================================
+
+WEEK 1:
+  Day 1-2: Foundation (Providers, Store, WalletConnect)
+  Day 3-4: Wallet integration (Balance, Header)
+  Day 5-6: Vault selection (Selector, API methods)
+
+WEEK 2:
+  Day 7-8: Vault creation (Form, validation)
+  Day 9-10: Vault display (Metrics, polling)
+  Day 11-12: Polish, testing, documentation
+
+ESTIMATED TOTAL: 40-60 hours across 1-2 weeks
+
+================================================================================
+SUCCESS CRITERIA
+================================================================================
+
+✓ User can connect Phantom/Solflare wallet
+✓ Wallet address and SOL balance displayed
+✓ User can create vault with initial balance
+✓ Vault appears in selector and can be selected
+✓ Vault metrics (balance, PnL, drawdown) display in real-time
+✓ Polling updates vault state every 5 seconds
+✓ All error cases handled gracefully with user feedback
+✓ Mobile responsive layout (xs-xl breakpoints)
+✓ Accessibility standards met (WCAG 2.1 AA)
+✓ Test coverage > 80%
+✓ Zero TypeScript errors
+
+================================================================================
+FUTURE ENHANCEMENTS (POST-MVP)
+================================================================================
+
+Phase 2:
+  • WebSocket real-time updates (replace polling)
+  • Vault deposit/withdraw UI
+  • Advanced analytics charts (Recharts)
+  • Trade history viewer
+  • Agent logs viewer
+
+Phase 3:
+  • Risk management dashboard
+  • Automated rebalancing
+  • Performance analytics
+  • Vault snapshots/history
+  • Email/in-app notifications
+  • Mobile app (React Native)
+  • TradingView integration
+
+================================================================================
+RISK ASSESSMENT
+================================================================================
+
+Risk: Wallet connection fails
+  Impact: HIGH | Likelihood: LOW
+  Mitigation: Test early with multiple wallets, follow official patterns
+
+Risk: RPC rate limiting
+  Impact: MEDIUM | Likelihood: MEDIUM  
+  Mitigation: Implement backoff strategy, use WebSocket later
+
+Risk: Form validation bugs
+  Impact: MEDIUM | Likelihood: MEDIUM
+  Mitigation: Comprehensive testing, input validation
+
+Risk: Store state sync issues
+  Impact: HIGH | Likelihood: LOW
+  Mitigation: Use Zustand dev tools, careful testing
+
+Risk: Chain state inconsistencies
+  Impact: MEDIUM | Likelihood: LOW
+  Mitigation: Implement checksums, retry logic
+
+================================================================================
+DEPENDENCIES VERIFICATION
+================================================================================
+
+All required packages ALREADY INSTALLED:
+  ✓ @solana/wallet-adapter-base v0.9.23
+  ✓ @solana/wallet-adapter-react v0.15.35
+  ✓ @solana/wallet-adapter-react-ui v0.9.35
+  ✓ @solana/wallet-adapter-wallets v0.19.18
+  ✓ @solana/web3.js v1.91.0
+  ✓ zustand v4.4.1
+  ✓ react-hook-form v7.48.0
+  ✓ axios v1.6.2
+  ✓ tailwindcss v3.4.1
+
+NO NEW DEPENDENCIES NEEDED!
+
+================================================================================
+DOCUMENTATION PROVIDED
+================================================================================
+
+1. CLE-130-IMPLEMENTATION-PLAN.md (30KB)
+   Complete implementation guide with all details
+
+2. CLE-130-TECHNICAL-SPECS.md (15KB)
+   Architecture, API contracts, detailed specifications
+
+3. CLE-130-QUICK-START.md (10KB)
+   Developer quick reference with examples
+
+4. This summary document
+   High-level overview for stakeholders
+
+TOTAL DOCUMENTATION: ~65KB of detailed specifications
+
+================================================================================
+NEXT STEPS
+================================================================================
+
+1. Review all three documentation files
+2. Assign developer(s) to implementation phases
+3. Create Git branches for each phase
+4. Start Phase 1: Foundation (Providers, Store, Components)
+5. Daily standup on progress
+6. Code review after each phase
+7. Integration testing before Phase 6
+8. Release when all success criteria met
+
+================================================================================
+CONTACT & QUESTIONS
+================================================================================
+
+For implementation details: See CLE-130-IMPLEMENTATION-PLAN.md (Section 5-11)
+For technical architecture: See CLE-130-TECHNICAL-SPECS.md (Section A-N)
+For quick examples: See CLE-130-QUICK-START.md (Section 2-5)
+
+================================================================================
+END OF SUMMARY
+================================================================================
+
+Document Version: 1.0
+Last Updated: 2026-04-14
+Status: Ready for Implementation
+Quality: Production-Ready Specifications
