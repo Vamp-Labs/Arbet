@@ -1,0 +1,52 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+target/
+dist/
+.next/
+__pycache__/
+*.pyc
+*.egg-info/
+venv/
+.venv/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Build artifacts
+build/
+*.o
+*.a
+*.so
+
+# Logs
+*.log
+logs/
+
+# Secrets
+*.pem
+*.key
+secrets.json
+private_key.json
+keypair.json
+
+# Test coverage
+coverage/
+.nyc_output/
+htmlcov/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Solana
+.solana/

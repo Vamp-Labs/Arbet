@@ -1,0 +1,24 @@
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[profile.dev]
+opt-level = 0
+
+[workspace]
+members = ["programs/arbet"]
+
+[package]
+name = "arbet"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anchor-lang = "0.30"
+anchor-spl = "0.30"
+pyth-sdk-solana = "0.8"
+solders = "0.14"
+
+[lib]
+crate-type = ["cdylib", "rlib"]

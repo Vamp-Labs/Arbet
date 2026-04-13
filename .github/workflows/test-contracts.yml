@@ -1,0 +1,27 @@
+name: Smart Contract Tests & Build
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.85.0
+          profile: minimal
+      - name: Install Anchor
+        run: |
+          cargo install --git https://github.com/coral-xyz/anchor --tag v1.0.0 anchor-cli --locked
+      - name: Build Anchor Program
+        run: |
+          cd contracts
+          anchor build
+      - name: Run Tests
+        run: |
+          cd contracts
+          cargo test --lib
+      - name: Check Clippy
+        run: |
+          cd contracts
+          cargo clippy -- -D warnings

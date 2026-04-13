@@ -1,0 +1,15 @@
+[provider]
+cluster = "devnet"
+wallet = "~/.config/solana/id.json"
+
+[programs.devnet]
+arbet = "YOUR_PROGRAM_ID_HERE"
+
+[registry]
+url = "https://api.apr.dev"
+
+[[test.validator.clone]]
+address = "TokenkegQfeZyiNwAJsyFbPVwwQQforrMgqPKRunDLy"
+
+[[test.validator.clone]]
+address = "metaqbxxUerdq28cj1RbAqKEsbRUixwxLcFBhZ4efQe"

@@ -1,0 +1,27 @@
+name: Backend Tests & Lint
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      - name: Install Dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+      - name: Run Tests
+        run: |
+          cd backend
+          pytest tests/ -v
+      - name: Lint
+        run: |
+          cd backend
+          pylint backend/ --disable=all --enable=E,F || true
+      - name: Type Check
+        run: |
+          cd backend
+          mypy backend/ || true

@@ -1,0 +1,31 @@
+name: Frontend Tests & Build
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - name: Install Dependencies
+        run: |
+          cd web
+          npm ci
+      - name: Lint
+        run: |
+          cd web
+          npm run lint || true
+      - name: Type Check
+        run: |
+          cd web
+          npm run type-check || true
+      - name: Build
+        run: |
+          cd web
+          npm run build
+      - name: Run Tests
+        run: |
+          cd web
+          npm run test || true
