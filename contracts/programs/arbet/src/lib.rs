@@ -115,6 +115,177 @@ pub mod arbet {
         msg!("Withdrawal successful: {} lamports from vault", amount_lamports);
         Ok(())
     }
+
+    pub fn execute_arb(
+        ctx: Context<ExecuteArb>,
+        buy_market_id: u64,
+        sell_market_id: u64,
+        buy_amount_lamports: u64,
+        min_sell_amount_lamports: u64,
+        estimated_edge_bps: u16,
+    ) -> Result<()> {
+        let vault = &mut ctx.accounts.vault;
+        let global_config = &ctx.accounts.global_config;
+
+        // Validation checks
+        require!(!vault.is_paused, ErrorCode::VaultPaused);
+        require!(!global_config.is_paused, ErrorCode::VaultPaused);
+        require!(buy_amount_lamports > 0, ErrorCode::InvalidAmount);
+        require!(buy_amount_lamports >= 5000, ErrorCode::BelowMinimum);
+        require!(estimated_edge_bps > 100, ErrorCode::EdgeTooLow);
+        require!(vault.balance >= buy_amount_lamports as i64, ErrorCode::InsufficientBalance);
+
+        // Position limit check: buy_amount <= TVL * position_limit_bps / 10000
+        let position_limit = (vault.balance as u128)
+            .saturating_mul(global_config.position_limit_bps as u128)
+            .saturating_div(10000);
+
+        require!(
+            (buy_amount_lamports as u128) <= position_limit,
+            ErrorCode::PositionLimitExceeded
+        );
+
+        // Slippage check: min_sell_amount >= 98% of expected
+        let expected_sell_amount = (buy_amount_lamports as u128)
+            .saturating_mul((10000 + estimated_edge_bps as u128))
+            .saturating_div(10000);
+
+        let min_threshold = expected_sell_amount
+            .saturating_mul(98)
+            .saturating_div(100);
+
+        require!(
+            (min_sell_amount_lamports as u128) >= min_threshold,
+            ErrorCode::SlippageExceeded
+        );
+
+        // Deduct from vault balance (will be restored if trade fails, or finalized in record_trade)
+        vault.balance = vault.balance
+            .checked_sub(buy_amount_lamports as i64)
+            .ok_or(ErrorCode::BalanceUnderflow)?;
+
+        // Create TradeIntent (temporary state)
+        let trade_intent = &mut ctx.accounts.trade_intent;
+        trade_intent.vault = vault.key();
+        trade_intent.trade_id = vault.num_trades;
+        trade_intent.buy_market_id = buy_market_id;
+        trade_intent.sell_market_id = sell_market_id;
+        trade_intent.buy_amount = buy_amount_lamports;
+        trade_intent.min_sell_amount = min_sell_amount_lamports;
+        trade_intent.estimated_edge_bps = estimated_edge_bps;
+        trade_intent.timestamp = Clock::get()?.unix_timestamp;
+
+        msg!(
+            "Execute arb initiated: buy {} lamports, min sell {}, edge {} bps",
+            buy_amount_lamports,
+            min_sell_amount_lamports,
+            estimated_edge_bps
+        );
+
+        Ok(())
+    }
+
+    pub fn record_trade(
+        ctx: Context<RecordTrade>,
+        actual_buy_amount_lamports: u64,
+        actual_sell_amount_lamports: u64,
+        execution_price_bps: u16,
+        pnl_lamports: i64,
+    ) -> Result<()> {
+        let vault = &mut ctx.accounts.vault;
+        let trade_intent = &ctx.accounts.trade_intent;
+
+        require!(actual_buy_amount_lamports > 0, ErrorCode::InvalidAmount);
+        require!(actual_sell_amount_lamports > 0, ErrorCode::InvalidAmount);
+
+        // Create immutable TradeLog
+        let trade_log = &mut ctx.accounts.trade_log;
+        trade_log.vault = vault.key();
+        trade_log.trade_id = trade_intent.trade_id;
+        trade_log.timestamp = Clock::get()?.unix_timestamp;
+        trade_log.buy_amount = actual_buy_amount_lamports;
+        trade_log.sell_amount = actual_sell_amount_lamports;
+        trade_log.actual_edge_bps = execution_price_bps;
+        trade_log.pnl_lamports = pnl_lamports;
+        trade_log.execution_slot = Clock::get()?.slot;
+
+        // Update vault state
+        vault.balance = vault.balance
+            .checked_add(actual_sell_amount_lamports as i64)
+            .ok_or(ErrorCode::BalanceOverflow)?
+            .checked_sub(actual_buy_amount_lamports as i64)
+            .ok_or(ErrorCode::BalanceUnderflow)?;
+
+        vault.cumulative_pnl = vault.cumulative_pnl
+            .checked_add(pnl_lamports)
+            .ok_or(ErrorCode::BalanceOverflow)?;
+
+        vault.num_trades = vault.num_trades.checked_add(1)
+            .ok_or(ErrorCode::TradeLimitExceeded)?;
+
+        // Update max/min balance
+        if vault.balance > vault.max_balance {
+            vault.max_balance = vault.balance;
+        }
+        if vault.balance < vault.min_balance || vault.min_balance == 0 {
+            vault.min_balance = vault.balance;
+        }
+
+        // TradeIntent is now consumed (can be closed by client)
+        msg!(
+            "Trade recorded: trade_id {}, pnl {} lamports",
+            trade_intent.trade_id,
+            pnl_lamports
+        );
+
+        Ok(())
+    }
+
+    pub fn update_config(
+        ctx: Context<UpdateConfig>,
+        new_position_limit_bps: Option<u16>,
+        new_max_drawdown_bps: Option<u16>,
+        new_protocol_fee_bps: Option<u8>,
+    ) -> Result<()> {
+        let global_config = &mut ctx.accounts.global_config;
+
+        require!(
+            global_config.authority == ctx.accounts.authority.key(),
+            ErrorCode::Unauthorized
+        );
+
+        if let Some(limit) = new_position_limit_bps {
+            require!(limit <= 10000, ErrorCode::InvalidParameter);
+            global_config.position_limit_bps = limit;
+        }
+
+        if let Some(drawdown) = new_max_drawdown_bps {
+            require!(drawdown <= 10000, ErrorCode::InvalidParameter);
+            global_config.max_drawdown_bps = drawdown;
+        }
+
+        if let Some(fee) = new_protocol_fee_bps {
+            require!(fee <= 100, ErrorCode::InvalidParameter);
+            global_config.protocol_fee_bps = fee;
+        }
+
+        msg!("Global config updated");
+        Ok(())
+    }
+
+    pub fn emergency_pause(ctx: Context<EmergencyPause>, pause_flag: bool) -> Result<()> {
+        let global_config = &mut ctx.accounts.global_config;
+
+        require!(
+            global_config.authority == ctx.accounts.authority.key(),
+            ErrorCode::Unauthorized
+        );
+
+        global_config.is_paused = pause_flag;
+
+        msg!("Emergency pause set to: {}", pause_flag);
+        Ok(())
+    }
 }
 
 // === ACCOUNTS & DATA STRUCTURES ===
@@ -237,6 +408,91 @@ pub struct Withdraw<'info> {
     pub system_program: Program<'info, System>,
 }
 
+#[derive(Accounts)]
+pub struct ExecuteArb<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"vault", authority.key().as_ref()],
+        bump
+    )]
+    pub vault: Account<'info, VaultPDA>,
+
+    #[account(
+        seeds = [b"global_config"],
+        bump
+    )]
+    pub global_config: Account<'info, GlobalConfig>,
+
+    #[account(
+        init,
+        payer = authority,
+        space = 8 + std::mem::size_of::<TradeIntent>(),
+        seeds = [b"trade_intent", vault.key().as_ref(), &[vault.num_trades as u8]],
+        bump
+    )]
+    pub trade_intent: Account<'info, TradeIntent>,
+
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct RecordTrade<'info> {
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"vault", authority.key().as_ref()],
+        bump
+    )]
+    pub vault: Account<'info, VaultPDA>,
+
+    #[account(
+        seeds = [b"trade_intent", vault.key().as_ref(), &[vault.num_trades as u8]],
+        bump,
+        close = authority
+    )]
+    pub trade_intent: Account<'info, TradeIntent>,
+
+    #[account(
+        init,
+        payer = authority,
+        space = 8 + std::mem::size_of::<TradeLog>(),
+        seeds = [b"trade_log", vault.key().as_ref(), &[vault.num_trades as u8]],
+        bump
+    )]
+    pub trade_log: Account<'info, TradeLog>,
+
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct UpdateConfig<'info> {
+    pub authority: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"global_config"],
+        bump
+    )]
+    pub global_config: Account<'info, GlobalConfig>,
+}
+
+#[derive(Accounts)]
+pub struct EmergencyPause<'info> {
+    pub authority: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"global_config"],
+        bump
+    )]
+    pub global_config: Account<'info, GlobalConfig>,
+}
+
 // === ERRORS ===
 
 #[error_code]
@@ -270,4 +526,13 @@ pub enum ErrorCode {
 
     #[msg("Balance underflow")]
     BalanceUnderflow,
+
+    #[msg("Unauthorized")]
+    Unauthorized,
+
+    #[msg("Invalid parameter")]
+    InvalidParameter,
+
+    #[msg("Trade limit exceeded")]
+    TradeLimitExceeded,
 }
