@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "skills": {
+    "solana-anchor-claude-skill": {
+      "source": "quiknode-labs/solana-anchor-claude-skill",
+      "sourceType": "github",
+      "computedHash": "aad1cb04dd045d2cd695e4d770ec51c34d8f56545590b0e1e0bb1d2e4496db0b"
+    },
+    "solana-dev": {
+      "source": "solana-foundation/solana-dev-skill",
+      "sourceType": "github",
+      "computedHash": "4a4c953b235944cc5c2a76af9669406ee01213bf6892941399e646cfbf9259b9"
+    },
+    "solana-payments-wallets-trading": {
+      "source": "solanaguide/solana-cli",
+      "sourceType": "github",
+      "computedHash": "cb8a16f64720f1e9051de00b5d2c7d3033e1c9e28e37bdf0966923e167d5dac1"
+    }
+  }
+}
