@@ -1,8 +1,12 @@
 'use client'
 
+import { useState } from 'react'
+import { useWallet } from '@solana/wallet-adapter-react'
 import { useVaultPolling } from '@/lib/hooks/useVaultPolling'
 import { getVaultMetrics } from '@/lib/store'
 import { LAMPORTS_PER_SOL } from '@/lib/constants'
+import { DepositForm } from './DepositForm'
+import { WithdrawForm } from './WithdrawForm'
 
 interface VaultDisplayProps {
   vaultId: string | null
@@ -15,9 +19,14 @@ interface VaultDisplayProps {
  * - Cumulative P&L (%)
  * - Max Drawdown (%)
  * - Trades Executed (count)
+ *
+ * Also includes Deposit/Withdraw action buttons
  */
 export function VaultDisplay({ vaultId }: VaultDisplayProps) {
   const { vault } = useVaultPolling(vaultId)
+  const { connected } = useWallet()
+  const [showDepositForm, setShowDepositForm] = useState(false)
+  const [showWithdrawForm, setShowWithdrawForm] = useState(false)
 
   if (!vault) {
     return (
@@ -119,6 +128,46 @@ export function VaultDisplay({ vaultId }: VaultDisplayProps) {
           </div>
         </div>
       </div>
+
+      {/* Action Buttons */}
+      {connected && (
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowDepositForm(true)}
+            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition font-semibold"
+          >
+            💰 Deposit
+          </button>
+          <button
+            onClick={() => setShowWithdrawForm(true)}
+            className="flex-1 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition font-semibold"
+          >
+            📤 Withdraw
+          </button>
+        </div>
+      )}
+
+      {/* Forms */}
+      <DepositForm
+        isOpen={showDepositForm}
+        vault={vault}
+        onClose={() => setShowDepositForm(false)}
+        onSuccess={() => {
+          setShowDepositForm(false)
+          // Vault polling will automatically refresh on interval
+        }}
+      />
+
+      <WithdrawForm
+        isOpen={showWithdrawForm}
+        vault={vault}
+        onClose={() => setShowWithdrawForm(false)}
+        onSuccess={() => {
+          setShowWithdrawForm(false)
+          // Vault polling will automatically refresh on interval
+        }}
+      />
     </div>
   )
 }
+
