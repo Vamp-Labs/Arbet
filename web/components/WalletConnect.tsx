@@ -1,14 +1,14 @@
 'use client'
 
 import { useWallet } from '@solana/wallet-adapter-react'
-import { useWalletMultiButton } from '@solana/wallet-adapter-react-ui'
 import { useWalletStore } from '@/lib/store'
 import { useEffect } from 'react'
 
 /**
  * WalletConnect Component
  * Displays wallet connection button with address and balance display
- * Uses the built-in WalletMultiButton from wallet-adapter-react-ui
+ * Note: WalletMultiButton is provided by wallet-adapter-react-ui
+ * and should be used in the header via the pre-built UI component
  */
 export function WalletConnect() {
   const { publicKey, connected } = useWallet()
@@ -46,3 +46,4 @@ export function WalletConnect() {
     </div>
   )
 }
+

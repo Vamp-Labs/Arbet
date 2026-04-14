@@ -1,4 +1,6 @@
-"""Placeholder for environment types"""
+/**
+ * Environment variable type definitions for Solana frontend
+ */
 declare global {
   namespace NodeJS {
     interface ProcessEnv {
@@ -10,3 +12,4 @@ declare global {
 }
 
 export {}
+

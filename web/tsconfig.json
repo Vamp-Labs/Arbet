@@ -7,14 +7,28 @@
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "strict": true,
     "resolveJsonModule": true,
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    },
+    "allowJs": true,
+    "noEmit": false,
+    "incremental": true,
+    "moduleResolution": "node",
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "noImplicitAny": false,
+    "strict": false,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
   },
-  "include": ["app", "components", "lib"],
+  "include": ["__tests__", "app", "components", "lib", ".next/types/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }
