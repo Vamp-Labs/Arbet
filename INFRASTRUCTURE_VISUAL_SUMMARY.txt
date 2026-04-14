@@ -1,0 +1,296 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║                    ARBET INFRASTRUCTURE EXPLORATION                        ║
+║                          Visual Architecture Summary                       ║
+║                             April 14, 2026                                ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+┌─ CURRENT DEVELOPMENT ARCHITECTURE ──────────────────────────────────────────┐
+│                                                                               │
+│  Developer's Machine                                                         │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │                         make dev                                      │  │
+│  │                      (or manual)                                      │  │
+│  │                                                                        │  │
+│  │  Terminal 1:              Terminal 2:           Terminal 3:           │  │
+│  │  ┌─────────────────┐    ┌─────────────────┐   ┌──────────────────┐  │  │
+│  │  │ Backend Service │    │ Frontend Service│   │ Smart Contracts  │  │  │
+│  │  │                 │    │                 │   │                  │  │  │
+│  │  │ FastAPI 0.104   │    │ Next.js 15      │   │ Anchor 0.30      │  │  │
+│  │  │ uvicorn :8000   │    │ npm run dev     │   │ cargo test       │  │  │
+│  │  │                 │    │ localhost:3000  │   │ anchor build     │  │  │
+│  │  │ Python 3.12     │    │                 │   │                  │  │  │
+│  │  │ SQLite DB       │    │ React 18        │   │ Rust 1.85        │  │  │
+│  │  │                 │    │ TypeScript 5.3  │   │ Edition 2021     │  │  │
+│  │  │ REST + WS       │    │ Tailwind CSS    │   │ devnet network   │  │  │
+│  │  └─────────────────┘    └─────────────────┘   └──────────────────┘  │  │
+│  │          ↓                      ↑                       ↓              │  │
+│  │    HTTP :8000              HTTP :3000            Manual deploy       │  │
+│  │    WS :8000          Backend API URL             scripts/deploy.sh   │  │
+│  │                                                                        │  │
+│  │  Setup: 15-20 minutes                           Requirements:        │  │
+│  │  - Copy .env.example -> .env manually            - Rust 1.85         │  │
+│  │  - npm ci                                        - Node 18           │  │
+│  │  - pip install -r requirements.txt               - Python 3.12       │  │
+│  │  - cargo fetch                                   - Anchor CLI        │  │
+│  │                                                   - Solana CLI        │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
+
+┌─ TARGET PRODUCTION ARCHITECTURE (WITH DOCKER) ──────────────────────────────┐
+│                                                                               │
+│  Docker Host / Cloud Provider                                               │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │                      docker-compose up                                │  │
+│  │                                                                        │  │
+│  │  ┌─────────────────┐              ┌─────────────────────────────┐   │  │
+│  │  │  Backend        │              │  Frontend                   │   │  │
+│  │  │  Container      │              │  Container                  │   │  │
+│  │  │                 │              │                             │   │  │
+│  │  │  python:3.12    │──HTTP──┐     │  node:18-alpine             │   │  │
+│  │  │  uvicorn :8000  │        │     │  next start :3000           │   │  │
+│  │  │  Health ✓       │        ├────→│  Health ✓                   │   │  │
+│  │  │                 │        │     │                             │   │  │
+│  │  │  Volume:        │        │     │  Volume:                    │   │  │
+│  │  │  sqlite.db      │        │     │  node_modules (cache)       │   │  │
+│  │  └─────────────────┘        │     └─────────────────────────────┘   │  │
+│  │                             │                                         │  │
+│  │                        Docker Bridge Network                          │  │
+│  │                        (arbet-network)                                │  │
+│  │                                                                        │  │
+│  │  .env Configuration:                                                  │  │
+│  │  - NEXT_PUBLIC_API_URL=http://backend:8000  (container DNS)         │  │
+│  │  - Database connections use service names                            │  │
+│  │  - All secrets loaded from .env (not in images)                      │  │
+│  │                                                                        │  │
+│  │  Setup: 1-2 minutes                          Requirements:           │  │
+│  │  - docker-compose up                         - Docker only          │  │
+│  │  (That's it!)                                - No host dependencies   │  │
+│  │                                                                        │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
+
+┌─ FILE TREE & COMPLETENESS ──────────────────────────────────────────────────┐
+│                                                                               │
+│  Arbet/                                  COMPLETENESS  DEPLOYMENT STATUS     │
+│  ├── 📄 .env.example                    ✅ Complete     ⚠️  Example only    │
+│  ├── 📄 .gitignore                      ✅ Complete     ✅ Ready           │
+│  ├── 📄 Makefile                        ✅ Complete     ✅ Ready           │
+│  ├── 📄 Anchor.toml                     ✅ Complete     ⚠️  Placeholder ID  │
+│  │                                                                           │
+│  ├── 📁 backend/                        ✅ Complete     ❌ No Docker       │
+│  │   ├── requirements.txt               ✅ 22 packages  ✅ Ready           │
+│  │   └── backend/                       ✅ Full impl.   ✅ Ready           │
+│  │       ├── api/server.py              ✅ 234 lines    ✅ Ready           │
+│  │       ├── api/service.py             ✅ Complete    ✅ Ready           │
+│  │       ├── agent/                     ✅ 4 agents     ✅ Ready           │
+│  │       └── db/                        ✅ ORM setup    ✅ Ready           │
+│  │                                                                           │
+│  ├── 📁 web/                            ✅ Complete     ❌ No Docker       │
+│  │   ├── package.json                   ✅ 30+ deps     ✅ Ready           │
+│  │   ├── next.config.js                 ✅ Config       ✅ Ready           │
+│  │   ├── tsconfig.json                  ✅ TypeScript   ✅ Ready           │
+│  │   └── app/ & components/             ✅ 7+ comps     ✅ Ready           │
+│  │                                                                           │
+│  ├── 📁 contracts/                      ✅ Complete     ❌ No Docker       │
+│  │   ├── Cargo.toml                     ✅ Workspace    ✅ Ready           │
+│  │   └── programs/arbet/                ✅ 8 instr.     ✅ Ready           │
+│  │                                                                           │
+│  ├── 📁 scripts/                        ✅ Complete     ✅ Ready           │
+│  │   ├── deploy.sh                      ✅ Functional   ✅ Ready           │
+│  │   └── verify_deployment.sh           ✅ Functional   ✅ Ready           │
+│  │                                                                           │
+│  ├── 📁 .github/workflows/              ✅ 3 workflows  ⚠️  Needs upgrade  │
+│  │   ├── test-contracts.yml             ✅ Complete     ✅ Working        │
+│  │   ├── test-backend.yml               ✅ Complete     ✅ Working        │
+│  │   └── test-frontend.yml              ✅ Complete     ✅ Working        │
+│  │                                                                           │
+│  ├── ❌ Dockerfile (backend)            ❌ MISSING      🔴 CRITICAL       │
+│  ├── ❌ Dockerfile (frontend)           ❌ MISSING      🔴 CRITICAL       │
+│  ├── ❌ docker-compose.yml              ❌ MISSING      🔴 CRITICAL       │
+│  └── ❌ .dockerignore files             ❌ MISSING      🔴 CRITICAL       │
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
+
+┌─ DEPENDENCY TREE ───────────────────────────────────────────────────────────┐
+│                                                                               │
+│  BACKEND (22 packages)                                                      │
+│  ├── Web Framework                                                          │
+│  │   ├── fastapi==0.104.1                                                  │
+│  │   └── uvicorn==0.24.0                                                   │
+│  ├── Data & Validation                                                      │
+│  │   ├── sqlalchemy==2.0.23                                                │
+│  │   ├── pydantic==2.5.0                                                   │
+│  │   └── pydantic-settings==2.1.0                                          │
+│  ├── Blockchain                                                             │
+│  │   ├── solana==0.33.0                                                    │
+│  │   └── solders==0.27.1                                                   │
+│  ├── AI/ML                                                                  │
+│  │   ├── langgraph==0.0.16                                                 │
+│  │   ├── langchain==0.1.0                                                  │
+│  │   ├── langsmith==0.1.0                                                  │
+│  │   └── ollama==0.1.0                                                     │
+│  ├── Data Science                                                           │
+│  │   ├── numpy==1.26.2                                                     │
+│  │   └── pandas==2.1.3                                                     │
+│  ├── Testing & Quality                                                      │
+│  │   ├── pytest==7.4.3                                                     │
+│  │   ├── pytest-asyncio==0.21.1                                            │
+│  │   ├── black==23.12.0                                                    │
+│  │   ├── pylint==3.0.2                                                     │
+│  │   └── mypy==1.7.1                                                       │
+│  ├── Utilities                                                              │
+│  │   ├── aiohttp==3.9.1                                                    │
+│  │   ├── tenacity==8.2.3                                                   │
+│  │   └── python-dotenv==1.0.0                                              │
+│  └── Total: 22 packages (well-maintained, modern versions)                  │
+│                                                                               │
+│  FRONTEND (30+ packages)                                                    │
+│  ├── Core Framework                                                         │
+│  │   ├── next==15.0.0                                                      │
+│  │   ├── react==18.2.0                                                     │
+│  │   └── react-dom==18.2.0                                                 │
+│  ├── Styling                                                                │
+│  │   └── tailwindcss==3.4.1                                                │
+│  ├── Type System                                                            │
+│  │   └── typescript==5.3.0                                                 │
+│  ├── Blockchain Integration                                                 │
+│  │   ├── @solana/web3.js==1.91.0                                           │
+│  │   ├── @solana/wallet-adapter-base==0.9.23                               │
+│  │   ├── @solana/wallet-adapter-react==0.15.35                             │
+│  │   ├── @solana/wallet-adapter-react-ui==0.9.35                           │
+│  │   └── @solana/wallet-adapter-wallets==0.19.18                           │
+│  ├── State Management                                                       │
+│  │   ├── zustand==4.4.1                                                    │
+│  │   └── react-hook-form==7.48.0                                           │
+│  ├── UI Components                                                          │
+│  │   └── recharts==2.15.4                                                  │
+│  ├── HTTP Client                                                            │
+│  │   └── axios==1.6.2                                                      │
+│  ├── Utils                                                                  │
+│  │   └── dayjs==1.11.10                                                    │
+│  ├── Testing                                                                │
+│  │   ├── jest==29.7.0                                                      │
+│  │   ├── @testing-library/react==14.1.0                                    │
+│  │   └── ts-jest==29.4.9                                                   │
+│  └── Total: 30+ packages (modern React ecosystem)                           │
+│                                                                               │
+│  SMART CONTRACTS (Minimal Deps)                                             │
+│  ├── anchor-lang==0.30                                                      │
+│  └── anchor-spl==0.30                                                       │
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
+
+┌─ API ENDPOINTS & DATA FLOW ─────────────────────────────────────────────────┐
+│                                                                               │
+│  FRONTEND (Next.js)                BACKEND (FastAPI)        BLOCKCHAIN      │
+│  ┌──────────────────────┐         ┌──────────────────┐      (Solana)       │
+│  │ Dashboard (React)    │         │ API Server       │      ┌────────────┐  │
+│  │                      │         │ :8000            │      │ Devnet RPC │  │
+│  │ ┌──────────────────┐ │         │                  │      │            │  │
+│  │ │ Agent Monitor    │─HTTP──→ /health           │─HTTP→ │ Solana API │  │
+│  │ │ (WebSocket)      │─WS────→ /ws/agent-state   │       │            │  │
+│  │ └──────────────────┘ │         │                  │      │ Helius,    │  │
+│  │                      │         │                  │      │ Alchemy    │  │
+│  │ ┌──────────────────┐ │         │ SQLite DB        │      │            │  │
+│  │ │ Vault Manager    │─HTTP──→ /vault/*          │       │ Market API │  │
+│  │ │ (Forms)          │         │ /vault/create    │      │ (Capitola) │  │
+│  │ └──────────────────┘ │         │                  │      │ (Polymarket)  │
+│  │                      │         │ 4-Agent System   │      │            │  │
+│  │ ┌──────────────────┐ │         │ ├─ Scout        │      │ Jito       │  │
+│  │ │ Trade History    │─HTTP──→ /trades          │ │  (MEV/Bundles) │  │
+│  │ │ & Charts         │         │ ├─ Forecaster  │      │            │  │
+│  │ └──────────────────┘ │         │ ├─ Executor     │      │ Ollama     │  │
+│  │                      │         │ └─ Coordinator │      │ (LLM)      │  │
+│  │ ┌──────────────────┐ │         │                  │      └────────────┘  │
+│  │ │ Wallet           │─HTTP──→ /opportunities   │                        │
+│  │ │ Integration      │         │ /agent-logs     │                        │
+│  │ └──────────────────┘ │         │                  │                        │
+│  │                      │         │ REST + WebSocket│                        │
+│  │ Wallet Adapters:     │         │ CORS enabled    │                        │
+│  │ ├─ Phantom           │         │ Port: 8000      │                        │
+│  │ ├─ Solflare          │         │ Health check ✓  │                        │
+│  │ └─ Ledger            │         │                  │                        │
+│  │                      │         │ Tests: 43 ✓     │                        │
+│  │ Zustand Store:       │         │ Database: SQLite│                        │
+│  │ ├─ Wallet state      │         │ Size: 57KB      │                        │
+│  │ ├─ Vault state       │         │                  │                        │
+│  │ └─ Agent state       │         │ LangGraph       │                        │
+│  │                      │         │ Orchestration   │                        │
+│  │ Port: 3000           │         │ Ready for Cloud │                        │
+│  │ Tests: 43 ✓          │         │                  │                        │
+│  │ TypeScript ✓         │         │ Python 3.12     │                        │
+│  │ SSR/Export Ready     │         │ FastAPI 0.104.1 │                        │
+│  └──────────────────────┘         └──────────────────┘      └────────────┘   │
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
+
+┌─ INFRASTRUCTURE GAPS (PRIORITY) ────────────────────────────────────────────┐
+│                                                                               │
+│  🔴 CRITICAL (Blocks Production Deployment)                                 │
+│  ├─ ❌ Docker containerization (0/2 Dockerfiles)                            │
+│  ├─ ❌ docker-compose orchestration                                         │
+│  ├─ ❌ .env file setup for local development                                │
+│  ├─ ❌ Production deployment workflows                                       │
+│  ├─ ❌ Secrets management system                                            │
+│  └─ ❌ Health checks (container-level)                                      │
+│                                                                               │
+│  🟡 IMPORTANT (Should Have Before Launch)                                   │
+│  ├─ ⚠️ Docker image optimization                                            │
+│  ├─ ⚠️ Integration tests (end-to-end)                                       │
+│  ├─ ⚠️ Security scanning (cargo audit, npm audit)                           │
+│  ├─ ⚠️ Performance monitoring                                               │
+│  └─ ⚠️ Database migration framework                                         │
+│                                                                               │
+│  🟢 NICE-TO-HAVE (Post-Launch)                                              │
+│  ├─ ◯ Kubernetes manifests                                                  │
+│  ├─ ◯ Observability stack (logs, metrics, traces)                           │
+│  ├─ ◯ Auto-scaling configuration                                            │
+│  ├─ ◯ CDN / static asset caching                                            │
+│  └─ ◯ Feature flags / gradual rollout                                       │
+│                                                                               │
+│  EFFORT ESTIMATE:                                                            │
+│  Phase 1 (Docker): 2-3 days (UNBLOCKS EVERYTHING)                           │
+│  Phase 2 (Env/Secrets): 1 day                                               │
+│  Phase 3 (CI/CD): 2 days                                                    │
+│  Phase 4 (Cloud Deploy): 3-5 days                                           │
+│  ─────────────────────────────────                                          │
+│  Total: 8-12 days to production-ready                                       │
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
+
+┌─ QUICK START TIMELINE ──────────────────────────────────────────────────────┐
+│                                                                               │
+│  CURRENT (Without Docker):                   FUTURE (With Docker):          │
+│  ├─ Clone repo                             ├─ Clone repo                    │
+│  ├─ Copy .env.example → .env  (⚠️)         ├─ Copy .env.example → .env      │
+│  ├─ npm ci                                 ├─ docker-compose up             │
+│  ├─ pip install -r req.txt                 └─ Done! 🎉                      │
+│  ├─ cargo fetch                                                              │
+│  ├─ make dev                               Time: ~2 minutes vs ~20 minutes   │
+│  └─ Wait 15-20 min... 🕐                                                    │
+│                                                                               │
+└───────────────────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+SUMMARY: Arbet is FEATURE-COMPLETE but INFRASTRUCTURE-INCOMPLETE
+
+✅ What Works:
+   • All 3 components fully implemented (backend, frontend, contracts)
+   • Comprehensive API with WebSocket support
+   • Multi-agent AI orchestration
+   • Proper code structure and testing
+
+❌ What's Missing:
+   • Docker containerization (BLOCKING ISSUE)
+   • Production deployment infrastructure
+   • Secrets management
+   • Cloud deployment guides
+
+🎯 Next Action: CREATE DOCKER FILES (Phase 1)
+   This is a 2-3 day effort that unblocks everything else.
+   After Docker setup, cloud deployment becomes straightforward.
+
+═══════════════════════════════════════════════════════════════════════════════════
