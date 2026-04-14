@@ -8,11 +8,13 @@ pub mod arbet {
 
     pub fn initialize_global_config(
         ctx: Context<InitializeGlobalConfig>,
+        agent_pubkey: Pubkey,
         position_limit_bps: u16,
         max_drawdown_bps: u16,
     ) -> Result<()> {
         let global_config = &mut ctx.accounts.global_config;
         global_config.authority = ctx.accounts.authority.key();
+        global_config.agent_pubkey = agent_pubkey;
         global_config.position_limit_bps = position_limit_bps;
         global_config.max_drawdown_bps = max_drawdown_bps;
         global_config.protocol_fee_bps = 5;
@@ -20,7 +22,7 @@ pub mod arbet {
         global_config.protocol_fee_collected = 0;
         global_config.is_paused = false;
 
-        msg!("Global config initialized");
+        msg!("Global config initialized with agent: {}", agent_pubkey);
         Ok(())
     }
 
@@ -225,6 +227,22 @@ pub mod arbet {
         vault.num_trades = vault.num_trades.checked_add(1)
             .ok_or(ErrorCode::TradeLimitExceeded)?;
 
+        // Drawdown validation: check if loss from initial balance exceeds max_drawdown_bps
+        let global_config = &ctx.accounts.global_config;
+        if vault.initial_balance > 0 {
+            let loss = vault.initial_balance - vault.balance;
+            if loss > 0 {
+                let drawdown_bps = (loss as u128)
+                    .saturating_mul(10000)
+                    .saturating_div(vault.initial_balance as u128);
+
+                require!(
+                    drawdown_bps <= global_config.max_drawdown_bps as u128,
+                    ErrorCode::DrawdownLimitExceeded
+                );
+            }
+        }
+
         // Update max/min balance
         if vault.balance > vault.max_balance {
             vault.max_balance = vault.balance;
@@ -295,6 +313,7 @@ pub mod arbet {
 #[account]
 pub struct GlobalConfig {
     pub authority: Pubkey,                  // Admin authority
+    pub agent_pubkey: Pubkey,               // Agent hot wallet for CPI signing
     pub position_limit_bps: u16,           // Max position as % of TVL (basis points)
     pub max_drawdown_bps: u16,             // Max cumulative loss % (basis points)
     pub protocol_fee_bps: u8,              // Fee on execution (basis points)
@@ -470,6 +489,12 @@ pub struct RecordTrade<'info> {
         bump
     )]
     pub trade_log: Account<'info, TradeLog>,
+
+    #[account(
+        seeds = [b"global_config"],
+        bump
+    )]
+    pub global_config: Account<'info, GlobalConfig>,
 
     pub system_program: Program<'info, System>,
 }
