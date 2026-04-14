@@ -29,18 +29,22 @@ def test_trade_embedding_storage():
     """Test embedding generation and storage"""
     init_db()
 
-    # Create test data
+    # Create test data with unique identifiers
     db = SessionLocal()
 
-    # Create test user
-    user = User(wallet_address="test_wallet_123", username="test_user")
+    # Use UUID-like string for unique wallet address
+    import uuid
+    unique_id = str(uuid.uuid4())[:8]
+
+    # Create test user with unique wallet
+    user = User(wallet_address=f"test_wallet_{unique_id}", username=f"test_user_{unique_id}")
     db.add(user)
     db.commit()
 
     # Create test vault
     vault = Vault(
         user_id=user.id,
-        vault_address="vault_pda_123",
+        vault_address=f"vault_pda_{unique_id}",
         authority="test_authority",
         balance=1000000,
     )
