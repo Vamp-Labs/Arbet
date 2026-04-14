@@ -1,7 +1,8 @@
 """Database models and schema for Arbet Agents"""
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, JSON, BigInteger, LargeBinary
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, JSON, BigInteger, LargeBinary, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
+import json
 
 Base = declarative_base()
 
@@ -90,4 +91,17 @@ class RiskCheck(Base):
     risk_score = Column(Float, default=0.0)
     approved = Column(Boolean, default=False)
     reason = Column(String(255))
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class TradeEmbedding(Base):
+    """Vector embeddings for RAG: trade reasoning (384-dim)"""
+    __tablename__ = "trade_embeddings"
+
+    id = Column(Integer, primary_key=True)
+    trade_id = Column(Integer, ForeignKey("trades.id"), nullable=False)
+    reasoning_text = Column(String, nullable=False)  # Full trade decision reasoning
+    embedding = Column(LargeBinary, nullable=False)  # 384-dim vector as binary (float32 array)
+    embedding_model = Column(String(50), default="nomic-embed-text")  # Model used to generate
+    cosine_similarity_threshold = Column(Float, default=0.7)  # For RAG retrieval
     created_at = Column(DateTime, default=datetime.utcnow)

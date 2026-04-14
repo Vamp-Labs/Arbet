@@ -2,6 +2,8 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from backend.db.models import Base
+from backend.db.rag import EmbeddingManager
+from backend.db.init import init_db as init_db_tables, get_db_status, reset_db
 import os
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./arbet.db")
@@ -44,3 +46,17 @@ class DatabaseManager:
     def close(self):
         """Close session"""
         self.session.close()
+
+# Re-export for public API
+__all__ = [
+    "engine",
+    "SessionLocal",
+    "init_db",
+    "init_db_tables",
+    "get_db",
+    "get_db_status",
+    "reset_db",
+    "DatabaseManager",
+    "EmbeddingManager",
+    "Base",
+]
