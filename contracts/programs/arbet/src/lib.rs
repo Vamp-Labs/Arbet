@@ -118,6 +118,7 @@ pub mod arbet {
 
     pub fn execute_arb(
         ctx: Context<ExecuteArb>,
+        trade_id: u64,
         buy_market_id: u64,
         sell_market_id: u64,
         buy_amount_lamports: u64,
@@ -167,7 +168,7 @@ pub mod arbet {
         // Create TradeIntent (temporary state)
         let trade_intent = &mut ctx.accounts.trade_intent;
         trade_intent.vault = vault.key();
-        trade_intent.trade_id = vault.num_trades;
+        trade_intent.trade_id = trade_id;
         trade_intent.buy_market_id = buy_market_id;
         trade_intent.sell_market_id = sell_market_id;
         trade_intent.buy_amount = buy_amount_lamports;
@@ -187,6 +188,7 @@ pub mod arbet {
 
     pub fn record_trade(
         ctx: Context<RecordTrade>,
+        _trade_id: u64,
         actual_buy_amount_lamports: u64,
         actual_sell_amount_lamports: u64,
         execution_price_bps: u16,
@@ -409,6 +411,7 @@ pub struct Withdraw<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(trade_id: u64)]
 pub struct ExecuteArb<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
@@ -430,7 +433,7 @@ pub struct ExecuteArb<'info> {
         init,
         payer = authority,
         space = 8 + std::mem::size_of::<TradeIntent>(),
-        seeds = [b"trade_intent", vault.key().as_ref(), &[vault.num_trades as u8]],
+        seeds = [b"trade_intent", vault.key().as_ref(), &[trade_id as u8]],
         bump
     )]
     pub trade_intent: Account<'info, TradeIntent>,
@@ -439,6 +442,7 @@ pub struct ExecuteArb<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(trade_id: u64)]
 pub struct RecordTrade<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
@@ -451,7 +455,8 @@ pub struct RecordTrade<'info> {
     pub vault: Account<'info, VaultPDA>,
 
     #[account(
-        seeds = [b"trade_intent", vault.key().as_ref(), &[vault.num_trades as u8]],
+        mut,
+        seeds = [b"trade_intent", vault.key().as_ref(), &[trade_id as u8]],
         bump,
         close = authority
     )]
@@ -461,7 +466,7 @@ pub struct RecordTrade<'info> {
         init,
         payer = authority,
         space = 8 + std::mem::size_of::<TradeLog>(),
-        seeds = [b"trade_log", vault.key().as_ref(), &[vault.num_trades as u8]],
+        seeds = [b"trade_log", vault.key().as_ref(), &[trade_id as u8]],
         bump
     )]
     pub trade_log: Account<'info, TradeLog>,
