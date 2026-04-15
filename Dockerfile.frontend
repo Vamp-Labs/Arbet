@@ -1,18 +1,19 @@
 # Multi-stage build for Next.js frontend
 # Stage 1: Dependencies
-FROM node:20-alpine as deps
+FROM node:20-slim as deps
 
 WORKDIR /app
 
 # Copy package files
 COPY web/package.json web/package-lock.json ./
 
-# Install dependencies
-RUN npm ci --only=production && \
+# Install production dependencies only
+RUN npm install --prefer-offline --omit=dev --ignore-scripts && \
     npm cache clean --force
 
+
 # Stage 2: Builder
-FROM node:20-alpine as builder
+FROM node:20-slim as builder
 
 WORKDIR /app
 
@@ -20,7 +21,8 @@ WORKDIR /app
 COPY web/package.json web/package-lock.json ./
 
 # Install all dependencies (including dev)
-RUN npm ci
+# Using --ignore-scripts to skip native module compilation
+RUN npm install --prefer-offline --ignore-scripts
 
 # Copy source code
 COPY web/ ./
